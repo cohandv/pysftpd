@@ -1,0 +1,9 @@
+**/*.pyc
+
+pysftpd.ini
+authconfig.ini
+
+
+*.key
+*.pub
+*_key
