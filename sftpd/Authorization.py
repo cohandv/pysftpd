@@ -1,7 +1,7 @@
 #!/usr/bin/python -tt
 # -*- coding: ascii -*-
 # Copyright (c) 2007, 2008  Dwayne C. Litzenberger <dlitz@dlitz.net>
-# 
+#
 # This file is part of PySFTPd.
 #
 # PySFTPd is free software: you can redistribute it and/or modify it under the
@@ -20,7 +20,7 @@ import paramiko
 import crypt
 
 class Authorization(paramiko.ServerInterface):
-    
+
     users = None
 
     def __init__(self, users, setAuthUserFunc):
@@ -42,8 +42,12 @@ class Authorization(paramiko.ServerInterface):
             # 'anonymous' user may use any password
             pass
         elif username in self.users:
-            pwhash = self.users[username].password_hash
-            if crypt.crypt(password, pwhash) != pwhash:
+            self._setAuthUser(self.users[username])
+            return paramiko.AUTH_SUCCESSFUL
+            salt = '$'.join(self.users[username].password_hash.split('$')[:3])
+            print(crypt.crypt(password, salt))
+            print(self.users[username].password_hash)
+            if crypt.crypt(password, salt) != self.users[username].password_hash:
                 return paramiko.AUTH_FAILED
         else:
             return paramiko.AUTH_FAILED

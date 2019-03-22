@@ -2,7 +2,7 @@
 
 pysftpd.ini
 authconfig.ini
-
+local.db
 
 *.key
 *.pub

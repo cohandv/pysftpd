@@ -1,6 +1,8 @@
 [pysftpd]
-auth_config = ./authconfig.ini
+auth_provider=local
+auth_url=http://auth-url
+auth_local=./authconfig.ini.example
 host_key.0 = ./server_rsa_key
 host_key.1 = ./server_dss_key
-listen_host = 
-listen_port = 54321
+listen_host =
+listen_port = 54327

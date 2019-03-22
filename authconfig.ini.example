@@ -1,8 +1,8 @@
 [anonymous]
 anonymous = true
-root_path = /var/ftpd
+root_path = /tmp
 
-[dwon]
+[davidtest]
 password = $1$XXXXXXXX$oqV205xSKMnljqNTxnZaP.
-root_path = /
-authorized_keys_file = /home/dwon/.ssh/authorized_keys
+root_path = /tmp/home/davidtest/uploads
+authorized_keys_file = /tmp/home/davidtest/.ssh/authorized_keys
