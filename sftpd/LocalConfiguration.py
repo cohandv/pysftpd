@@ -6,10 +6,12 @@ class User(object):
         self.password_hash = None
         self.root_path = None
         self.authorized_keys = []
+        self.bucket = None
+        self.username = None
 
 
 class LocalConfiguration(object):
-    def getUsers(self, configFile):
+    def getUsers(self, configFile, bucket):
 
         # Load the user auth file (authconfig.ini)
         auth_config = ConfigParser.RawConfigParser()
@@ -22,9 +24,11 @@ class LocalConfiguration(object):
             if not u.anonymous:
                 u.password_hash = auth_config.get(username, 'password')
             u.root_path = auth_config.get(username, 'root_path')
+            u.username = username
 
             # TODO: Move authorized_keys parsing into a separate function
             u.authorized_keys = []
+            u.bucket = bucket
             if auth_config.has_option(username, 'authorized_keys_file'):
                 filename = auth_config.get(username, 'authorized_keys_file')
                 for rawline in open(filename, 'r'):

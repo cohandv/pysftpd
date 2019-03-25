@@ -20,6 +20,8 @@ import ConfigParser
 import paramiko
 import base64
 from LocalConfiguration import LocalConfiguration
+from S3Storage import S3Storage
+from LocalStorage import LocalStorage
 
 class ConfigurationError(Exception):
     pass
@@ -59,12 +61,21 @@ class Configuration(object):
             raise ConfigurationError("config file %r does not specify any host key" % (self.conffile_path,))
         self.host_keys = host_keys
 
+        # Storage type
+        storage_type = config.get(cfgSection, 'storage_type')
+        if storage_type.lower() == "local":
+            self.storage_type = LocalStorage
+        elif storage_type.lower() == "s3":
+            self.storage_type = S3Storage
+        else:
+            raise ConfigurationError("Unrecognized %s storage type. use local or s3" % (storage_type,))
+
         # Load the authentication auth_provider
         auth_provider = config.get(cfgSection, 'auth_provider')
         if auth_provider.lower() == 'api':
             raise ConfigurationError("auth provider %s is not YET valid, use local" % (auth_provider))
         elif auth_provider.lower() == 'local':
-            self.users = LocalConfiguration().getUsers(config.get(cfgSection, 'auth_local'))
+            self.users = LocalConfiguration().getUsers(config.get(cfgSection, 'auth_local'),config.get(cfgSection, 's3_bucket'))
         else:
             raise ConfigurationError("auth provider %s is not valid, use api or local" % (auth_provider))
 

@@ -5,4 +5,6 @@ auth_local=./authconfig.ini.example
 host_key.0 = ./server_rsa_key
 host_key.1 = ./server_dss_key
 listen_host =
-listen_port = 54327
+listen_port = 54328
+s3_bucket = customers-sftp-staging
+storage_type = s3

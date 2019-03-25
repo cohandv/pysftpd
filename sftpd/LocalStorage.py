@@ -1,7 +1,7 @@
 #!/usr/bin/python -tt
 # -*- coding: ascii -*-
 # Copyright (c) 2007, 2008  Dwayne C. Litzenberger <dlitz@dlitz.net>
-# 
+#
 # This file is part of PySFTPd.
 #
 # PySFTPd is free software: you can redistribute it and/or modify it under the
@@ -22,15 +22,15 @@ import stat
 import posixpath
 import sys
 
-class SFTPServerInterface(paramiko.SFTPServerInterface):
-    
+class LocalStorage(paramiko.SFTPServerInterface):
+
     def __init__(self, server, getUserFunc):
         self._base_dir = getUserFunc().root_path
 
     def _local_path(self, sftp_path):
         """Return the local path given an SFTP path.  Raise an exception if the path is illegal."""
         if sys.platform == 'win32':
-            # We would need to check for illegal characters, special filenames like 
+            # We would need to check for illegal characters, special filenames like
             # PRN.txt and AUX, and then convert to unicode (for NTFS).
             # See "Naming a File" <http://msdn2.microsoft.com/en-us/library/aa365247.aspx>
             raise NotImplementedError("Win32 path sanitization not implemented")
@@ -50,17 +50,22 @@ class SFTPServerInterface(paramiko.SFTPServerInterface):
         for filename in os.listdir(local_path):
             lpf = os.path.join(local_path, filename)
             retval.append(paramiko.SFTPAttributes.from_stat(os.lstat(lpf), filename))
+        print(retval)
         return retval
 
     def stat(self, sftp_path):
         local_path = self._local_path(sftp_path)
         filename = os.path.basename(local_path)
-        return paramiko.SFTPAttributes.from_stat(os.stat(local_path), filename)
+        stat = paramiko.SFTPAttributes.from_stat(os.stat(local_path), filename)
+        print(stat)
+        return stat
 
     def lstat(self, sftp_path):
         local_path = self._local_path(sftp_path)
         filename = os.path.basename(local_path)
-        return paramiko.SFTPAttributes.from_stat(os.lstat(local_path), filename)
+        stat = paramiko.SFTPAttributes.from_stat(os.lstat(local_path), filename)
+        print(stat)
+        return stat
 
     def open(self, sftp_path, flags, attr):
         local_path = self._local_path(sftp_path)
