@@ -36,8 +36,12 @@ class S3Storage(paramiko.SFTPServerInterface):
 
     def getStat(self, file):
         try:
-            _time = (file['LastModified'].replace(tzinfo=None) - datetime.datetime.utcfromtimestamp(0)).total_seconds() * 1000.0
-            return paramiko.SFTPAttributes.from_stat(posix.stat_result((33188, 0, 0, 1, 0, 0, file['Size'], _time, _time, _time)), file['Key'])
+            _time = (file['LastModified'].replace(tzinfo=None) - datetime.datetime.utcfromtimestamp(0)).total_seconds()
+            top_level_filename = file['Key'].replace("%s/%s/"%(self.username, self.homeDirectory),"")
+            print(posix.stat_result((33188, 0, 0, 1, 0, 0, file['Size'], _time, _time, _time)))
+            d = paramiko.SFTPAttributes.from_stat(posix.stat_result((33188, 0, 0, 1, 0, 0, file['Size'], _time, _time, _time)), top_level_filename)
+            print(d)
+            return d
         except Exception as e:
             print(e)
             raise

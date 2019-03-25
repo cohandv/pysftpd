@@ -33,6 +33,7 @@ class SFTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.users = config.users
         self.host_keys = config.host_keys
         self.storage_type = config.storage_type
+        paramiko.util.log_to_file('ssh.log')
 
 
 class SFTPConnectionRequestHandler(SocketServer.BaseRequestHandler):
