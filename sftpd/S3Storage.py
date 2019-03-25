@@ -17,31 +17,39 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import paramiko
-import posixpath
 import boto3
+import datetime
+import posix
+from dateutil.tz import tzutc
 
 class S3Storage(paramiko.SFTPServerInterface):
 
     def __init__(self, server, getUserFunc):
         self.bucket = getUserFunc().bucket
         self.username = getUserFunc().username
-        self.s3 = boto3.resource('s3')
+        self.homeDirectory = getUserFunc().homeDirectory
+        self.s3 = boto3.client('s3')
 
     def _local_path(self, sftp_path):
         """Return the local path given an SFTP path.  Raise an exception if the path is illegal."""
         return "%s/%s" % (self.bucket,sftp_path)
 
+    def getStat(self, file):
+        try:
+            _time = (file['LastModified'].replace(tzinfo=None) - datetime.datetime.utcfromtimestamp(0)).total_seconds() * 1000.0
+            return paramiko.SFTPAttributes.from_stat(posix.stat_result((33188, 0, 0, 1, 0, 0, file['Size'], _time, _time, _time)), file['Key'])
+        except Exception as e:
+            print(e)
+            raise
+
     def list_folder(self, sftp_path):
-        print('List')
         retval = []
-        kwargs = {'Bucket': self.bucket, 'Prefix': '/%s'%(self.username)}
-        print(kwargs)
+        kwargs = {'Bucket': self.bucket, 'Prefix': '%s/%s'%(self.username, self.homeDirectory)}
         while True:
             try:
-                print(self.s3)
                 resp = self.s3.list_objects_v2(**kwargs)
-                print(resp)
-                retval.extend(resp['Contents'])
+                for obj in resp['Contents']:
+                    retval.append(self.getStat(obj))
                 kwargs['ContinuationToken'] = resp['NextContinuationToken']
             except KeyError:
                 break
@@ -49,13 +57,23 @@ class S3Storage(paramiko.SFTPServerInterface):
 
     def stat(self, sftp_path):
         print('stat')
-        return paramiko.SFTPAttributes.from_stat("-rw-r--r--   1 503      0               0 22 Mar 16:47 "+sftp_path)
+        print(sftp_path)
+        retval = []
+        kwargs = {'Bucket': self.bucket, 'Prefix': '%s/%s%s'%(self.username, self.homeDirectory,sftp_path)}
+        try:
+            resp = self.s3.list_objects_v2(**kwargs)
+            obj = self.getStat(resp['Contents'][0])
+            print(obj)
+            return obj
+        except:
+            return
 
     def lstat(self, sftp_path):
         print('lstat')
-        return paramiko.SFTPAttributes.from_stat("-rw-r--r--   1 503      0               0 22 Mar 16:47 "+sftp_path)
+        return self.stat(sftp_path)
 
     def open(self, sftp_path, flags, attr):
+        print('open')
         local_path = self._local_path(sftp_path)
         if (flags & os.O_WRONLY) or (flags & os.O_RDWR):
             return paramiko.SFTP_PERMISSION_DENIED

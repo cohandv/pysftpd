@@ -6,3 +6,8 @@ root_path = /tmp
 password = $1$XXXXXXXX$oqV205xSKMnljqNTxnZaP.
 root_path = /tmp/home/davidtest/uploads
 authorized_keys_file = /tmp/home/davidtest/.ssh/authorized_keys
+
+[pepe]
+password = $1$XXXXXXXX$oqV205xSKMnljqNTxnZaP.
+root_path = /tmp/home/pepe/uploads
+authorized_keys_file = /tmp/home/davidtest/.ssh/authorized_keys

@@ -1,7 +1,7 @@
 #!/usr/bin/python -tt
 # -*- coding: ascii -*-
 # Copyright (c) 2007, 2008  Dwayne C. Litzenberger <dlitz@dlitz.net>
-# 
+#
 # This file is part of PySFTPd.
 #
 # PySFTPd is free software: you can redistribute it and/or modify it under the
@@ -23,11 +23,13 @@ import logging
 import pwd
 import grp
 import paramiko
+import threading
+import signal
 from SFTPServer import SFTPServer
 from Configuration import Configuration
 
 class CLI(object):
-    
+
     def parse_args(self):
         # Defaults
         defaults = {}
@@ -50,7 +52,7 @@ class CLI(object):
         op.add_option("-v", "--verbose", metavar="FILE",
             dest="verbosity", action="count", default=0,
             help="verbose operation (multiple -v options allowed)")
-        
+
         (options, args) = op.parse_args()
         if len(args) != 0:
             print >>sys.stderr, "%s: error: invalid arguments" % (sys.argv[0],)
@@ -62,30 +64,46 @@ class CLI(object):
 
         return options
 
+    def shutdown(self, signum, frame):
+        print('Shutting down')
+        self.server.shutdown()
+        self.server.server_close()
+
     def main(self):
-        options = self.parse_args()
-     
-        # Log verbosity
-        if options.verbosity == 0:
-            logging.basicConfig(level=logging.ERROR)
-        elif options.verbosity == 1:
-            logging.basicConfig(level=logging.INFO)
-        elif options.verbosity >= 2:
-            logging.basicConfig(level=logging.DEBUG)
-        
-        config = Configuration(options.config)
+        try:
+            options = self.parse_args()
 
-        server = SFTPServer(config.bind_address, config=config)
-        if options.chroot:
-            uid = pwd.getpwnam(options.user)[2]
-            gid = grp.getgrnam(options.group)[2]
+            # Log verbosity
+            if options.verbosity == 0:
+                logging.basicConfig(level=logging.ERROR)
+            elif options.verbosity == 1:
+                logging.basicConfig(level=logging.INFO)
+            elif options.verbosity >= 2:
+                logging.basicConfig(level=logging.DEBUG)
 
-            # TODO: Audit this
-            os.chroot(options.chroot)
-            os.setgroups([])    # Drop supplemental group privileges
-            os.setgid(gid)
-            os.setuid(uid)
-        server.serve_forever()
+            config = Configuration(options.config)
+            self.server = SFTPServer(config.bind_address, config=config)
+            if options.chroot:
+                uid = pwd.getpwnam(options.user)[2]
+                gid = grp.getgrnam(options.group)[2]
+
+                # TODO: Audit this
+                os.chroot(options.chroot)
+                os.setgroups([])    # Drop supplemental group privileges
+                os.setgid(gid)
+                os.setuid(uid)
+
+            #Set Ctrl-C to exit program
+            signal.signal(signal.SIGINT, self.shutdown)
+
+            server_thread = threading.Thread(target=self.server.serve_forever)
+            # Exit the server thread when the main thread terminates
+            server_thread.daemon = False
+            server_thread.start()
+            print "Server loop running in thread:", server_thread.name
+        except:
+            print "Unexpected error:", sys.exc_info()[0]
+            raise
 
 
 # vim:set ts=4 sw=4 sts=4 expandtab:

@@ -8,6 +8,7 @@ class User(object):
         self.authorized_keys = []
         self.bucket = None
         self.username = None
+        self.homeDirectory = 'uploads'
 
 
 class LocalConfiguration(object):

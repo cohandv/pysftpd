@@ -20,8 +20,9 @@ import SocketServer
 from Authorization import Authorization
 from errors import ProtocolError
 import paramiko
+import threading
 
-class SFTPServer(SocketServer.TCPServer):
+class SFTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
     def __init__(self, server_address, config, RequestHandlerClass=None):
         if RequestHandlerClass is None:
@@ -46,6 +47,7 @@ class SFTPConnectionRequestHandler(SocketServer.BaseRequestHandler):
         self.set_subsystem_handlers()
 
     def handle(self):
+        print('Handling incoming request by thread: %s'%(threading.current_thread().name))
         srvIface = Authorization(self.server.users, self._set_authenticated_user)
         self.transport.start_server(server=srvIface)
         # Get the session channel
