@@ -21,6 +21,8 @@ import boto3
 import datetime
 import posix
 from dateutil.tz import tzutc
+import stat
+import os
 
 class S3Storage(paramiko.SFTPServerInterface):
 
@@ -30,30 +32,66 @@ class S3Storage(paramiko.SFTPServerInterface):
         self.homeDirectory = getUserFunc().homeDirectory
         self.s3 = boto3.client('s3')
 
-    def _local_path(self, sftp_path):
-        """Return the local path given an SFTP path.  Raise an exception if the path is illegal."""
-        return "%s/%s" % (self.bucket,sftp_path)
+    def removeLeadingSlash(self,sftp_path):
+        return sftp_path[1:]
+
+    def removeTrailingSlash(self,sftp_path):
+        return sftp_path[:-1]
 
     def getStat(self, file):
         try:
             _time = (file['LastModified'].replace(tzinfo=None) - datetime.datetime.utcfromtimestamp(0)).total_seconds()
             top_level_filename = file['Key'].replace("%s/%s/"%(self.username, self.homeDirectory),"")
-            print(posix.stat_result((33188, 0, 0, 1, 0, 0, file['Size'], _time, _time, _time)))
-            d = paramiko.SFTPAttributes.from_stat(posix.stat_result((33188, 0, 0, 1, 0, 0, file['Size'], _time, _time, _time)), top_level_filename)
+            #This an equivalent to 744
+            mode = stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH
+            #Stupid hack to detect when a key is a directory instead
+            if top_level_filename.endswith('/'):
+                top_level_filename = top_level_filename[:-1]
+                mode |= stat.S_IFDIR
+            else:
+                mode |= stat.S_IFREG
+            print(posix.stat_result((mode, 0, 0, 1, 0, 0, file['Size'], _time, _time, _time)))
+            d = paramiko.SFTPAttributes.from_stat(posix.stat_result((mode, 0, 0, 1, 0, 0, file['Size'], _time, _time, _time)), top_level_filename)
             print(d)
             return d
         except Exception as e:
             print(e)
             raise
 
+    def canonicalize(self, path):
+        print ('canonicalize')
+        if path == ".":
+            out = '/%s/%s'%(self.username, self.homeDirectory)
+        elif os.path.isabs(path):
+            out = os.path.normpath(path)
+        else:
+            out = '/%s/%s%s'%(self.username, self.homeDirectory,path)
+        print(out)
+        return out
+
+    def mkdir(self, sftp_path, attr) :
+        print('mkdir')
+        tmp_dir = '%s/'%(sftp_path)
+        print(tmp_dir)
+        response = self.s3.put_object(Bucket=self.bucket,Body='',Key=tmp_dir)
+        print(response)
+        return paramiko.SFTP_OK
+
     def list_folder(self, sftp_path):
         retval = []
-        kwargs = {'Bucket': self.bucket, 'Prefix': '%s/%s'%(self.username, self.homeDirectory)}
+        prefix = self.removeLeadingSlash(sftp_path)
+        kwargs = {'Bucket': self.bucket, 'Prefix': prefix}
+        print (kwargs)
         while True:
             try:
                 resp = self.s3.list_objects_v2(**kwargs)
+                print(resp['Contents'])
                 for obj in resp['Contents']:
-                    retval.append(self.getStat(obj))
+                    #We do not want the exact same key
+                    if self.removeTrailingSlash(obj['Key'].lower()) != prefix.lower():
+                        print(obj['Key'].lower())
+                        print(prefix.lower())
+                        retval.append(self.getStat(obj))
                 kwargs['ContinuationToken'] = resp['NextContinuationToken']
             except KeyError:
                 break
@@ -63,9 +101,12 @@ class S3Storage(paramiko.SFTPServerInterface):
         print('stat')
         print(sftp_path)
         retval = []
-        kwargs = {'Bucket': self.bucket, 'Prefix': '%s/%s%s'%(self.username, self.homeDirectory,sftp_path)}
+        #'%s/%s%s'%(self.username, self.homeDirectory,sftp_path)
+        prefix = self.removeLeadingSlash(sftp_path)
+        kwargs = {'Bucket': self.bucket, 'Prefix': prefix}
         try:
             resp = self.s3.list_objects_v2(**kwargs)
+            print(resp['Contents'])
             obj = self.getStat(resp['Contents'][0])
             print(obj)
             return obj
@@ -73,16 +114,22 @@ class S3Storage(paramiko.SFTPServerInterface):
             return
 
     def lstat(self, sftp_path):
-        print('lstat')
         return self.stat(sftp_path)
 
     def open(self, sftp_path, flags, attr):
         print('open')
-        local_path = self._local_path(sftp_path)
-        if (flags & os.O_WRONLY) or (flags & os.O_RDWR):
-            return paramiko.SFTP_PERMISSION_DENIED
-        h = paramiko.SFTPHandle()
-        h.readfile = open(local_path, "rb")
-        return h
+        try:
+            tmp_dir = '/tmp'
+            tmp_file = '%s%s'%(tmp_dir,sftp_path)
+            if not os.path.isdir(tmp_dir):
+                os.makedirs(tmp_dir)
+            self.s3.download_file(self.bucket, self.removeLeadingSlash(sftp_path), tmp_file)
+            data = open(tmp_file, 'rb')
+            h = paramiko.SFTPHandle()
+            h.readfile = data
+            return h
+        except Exception as e:
+            print(e)
+
 
 # vim:set ts=4 sw=4 sts=4 expandtab:
